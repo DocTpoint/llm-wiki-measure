@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""
+score-blind.py — score a blind rating against the key.
+
+The ratings file is one line per pair: the number, whitespace, then y, n or ?.
+Lines you did not rate are ignored. Commit your ratings BEFORE looking at the
+key file — that is the whole point of the exercise.
+
+usage:  python3 score-blind.py --ratings my.txt --key blind-pairs-key.json
+"""
+import argparse, json, math
+from collections import Counter, defaultdict
+from pathlib import Path
+
+
+def wilson(k, n):
+    if n == 0:
+        return (0.0, 0.0)
+    p = k / n
+    z = 1.96
+    d = 1 + z * z / n
+    c = (p + z * z / (2 * n)) / d
+    h = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
+    return (max(0.0, c - h), min(1.0, c + h))
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--ratings", required=True, type=Path)
+    ap.add_argument("--key", required=True, type=Path)
+    a = ap.parse_args()
+
+    key = {d["nr"]: d["arm"] for d in json.loads(a.key.read_text())}
+    rat = {}
+    for line in a.ratings.read_text(encoding="utf-8").splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[0].rstrip(".").isdigit():
+            v = parts[1].lower()[0]
+            if v in "ynj?":
+                rat[int(parts[0].rstrip("."))] = "y" if v in "yj" else v
+
+    agg = defaultdict(Counter)
+    for nr, arm in key.items():
+        if nr in rat:
+            agg[arm][rat[nr]] += 1
+    missing = len(key) - len(rat)
+    if missing:
+        print(f"note: {missing} of {len(key)} pairs unrated — they are ignored\n")
+    print(f"{'arm':<20}{'y':>4}{'n':>4}{'?':>4}   carries      95% CI")
+    for arm in sorted(agg):
+        c = agg[arm]
+        y, n = c["y"], c["n"]
+        lo, hi = wilson(y, y + n)
+        rate = f"{y/(y+n):>6.0%}" if y + n else "     —"
+        print(f"{arm:<20}{y:>4}{n:>4}{c['?']:>4}   {rate}    {lo:>4.0%} – {hi:>3.0%}")
+    print("\nRead the gap to the rewired arm first: it is the floor that any")
+    print("graph of this shape reaches without knowing anything. A difference")
+    print("of a few points between the other arms is not a result at n=30 —")
+    print("run a forced-choice round on the arms that end up close.")
+
+
+if __name__ == "__main__":
+    main()
