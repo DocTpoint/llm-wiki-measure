@@ -10,6 +10,12 @@ vault. They answer questions the plugin cannot answer about itself:
 No writes, no network beyond your own embedding endpoint, no plugin dependency.
 Python 3.9+, `numpy` for the second script.
 
+There is a second family in [`plugin-probes/`](plugin-probes/): probes that run
+*inside* a checkout of the plugin and drive its real functions over your vault.
+Those do depend on the plugin, on purpose — a probe that reimplements the code
+it measures measures the reimplementation. Everything above about these two
+Python scripts stays true; the exception is fenced into that folder.
+
 ---
 
 ## Quick start
