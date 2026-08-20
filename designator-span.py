@@ -50,6 +50,33 @@ from collections import defaultdict
 INVALID = re.compile(r'[\x00-\x1f]|[/\\:*?"<>|,()\'!?、，。；：！？（）【】《》]')
 
 
+def stamp():
+    """One line naming the exact code that produced the numbers below.
+
+    A figure quoted out of this output has to carry its origin or nobody --
+    its author included -- can reproduce it later. The `+dirty` marker is the
+    part that earns its keep: an uncommitted edit turns a bare SHA into a
+    false claim of reproducibility, and that is precisely when a number is
+    most likely to be wrong.
+    """
+    import hashlib, os, subprocess
+    from datetime import datetime
+    f = os.path.abspath(__file__)
+    ver = "sha256:" + hashlib.sha256(open(f, "rb").read()).hexdigest()[:8]
+    try:
+        d = os.path.dirname(f)
+        r = subprocess.run(["git", "-C", d, "rev-parse", "--short", "HEAD"],
+                           capture_output=True, text=True, timeout=5)
+        if r.returncode == 0:
+            m = subprocess.run(["git", "-C", d, "status", "--porcelain", "--", f],
+                               capture_output=True, text=True, timeout=5)
+            ver = r.stdout.strip() + ("+dirty" if m.stdout.strip() else "") + " \u00b7 " + ver
+    except Exception:
+        pass
+    return (f"# llm-wiki-measure \u00b7 {os.path.basename(f)} \u00b7 {ver}\n"
+            f"# {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %z')}")
+
+
 def compute_slug(text):
     t = text.strip()
     if not t:
@@ -129,6 +156,7 @@ def classify(span, folders):
 
 def selftest():
     """Nails the failure classes, not the numbers. Runs without a vault."""
+    print(stamp())
     checks = []
 
     def ck(name, got, want):
@@ -183,6 +211,7 @@ def main():
     span = {k: v for k, v in keys.items() if len(v) == 2}
 
     total = sum(counts.values())
+    print(stamp())
     print(f"pages     : " + " + ".join(f"{f} {counts[f]}" for f in folders) + f" = {total}")
     print(f"slug keys : {len(keys)}")
     print(f"SPANNING  : {len(span)} designators occur in both folders\n")

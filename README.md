@@ -11,6 +11,12 @@ vault. They answer questions the plugin cannot answer about itself:
 No writes, no network beyond your own embedding endpoint, no plugin dependency.
 Python 3.9+, `numpy` for `graph-yield.py`.
 
+Every probe prints a provenance line above its numbers — script, commit, a
+hash of the file as it ran, and the time. `+dirty` appears when the file has
+uncommitted edits, which is the part that matters: a bare commit hash on an
+edited file is a false claim of reproducibility, and that is exactly when a
+figure is most likely to be wrong. Quote the line with the number.
+
 `designator-span.py` runs against the vault alone and takes seconds. Give it an
 answer you already know via `--expect` before you trust one you do not — the
 flag exists because an earlier version of that probe silently dropped the first

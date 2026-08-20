@@ -49,6 +49,33 @@ RELATED = ("verwandte", "related", "siehe auch", "see also")
 SKIP_DIRS = {".obsidian", ".trash", ".git", "node_modules", ".smart-env"}
 
 
+def stamp():
+    """One line naming the exact code that produced the numbers below.
+
+    A figure quoted out of this output has to carry its origin or nobody --
+    its author included -- can reproduce it later. The `+dirty` marker is the
+    part that earns its keep: an uncommitted edit turns a bare SHA into a
+    false claim of reproducibility, and that is precisely when a number is
+    most likely to be wrong.
+    """
+    import hashlib, os, subprocess
+    from datetime import datetime
+    f = os.path.abspath(__file__)
+    ver = "sha256:" + hashlib.sha256(open(f, "rb").read()).hexdigest()[:8]
+    try:
+        d = os.path.dirname(f)
+        r = subprocess.run(["git", "-C", d, "rev-parse", "--short", "HEAD"],
+                           capture_output=True, text=True, timeout=5)
+        if r.returncode == 0:
+            m = subprocess.run(["git", "-C", d, "status", "--porcelain", "--", f],
+                               capture_output=True, text=True, timeout=5)
+            ver = r.stdout.strip() + ("+dirty" if m.stdout.strip() else "") + " \u00b7 " + ver
+    except Exception:
+        pass
+    return (f"# llm-wiki-measure \u00b7 {os.path.basename(f)} \u00b7 {ver}\n"
+            f"# {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %z')}")
+
+
 def frontmatter(t):
     m = re.match(r"^---\n(.*?)\n---", t, re.S)
     return m.group(1) if m else ""
@@ -200,6 +227,7 @@ def main():
     edges = {(x, y) for x, y in edges if x in pages and y in pages}
     if not edges:
         sys.exit("no edges found — are the Related sections present?")
+    print(stamp())
     print(f"vault {vault}\npages {len(pages)} · notes {len(notes)} · "
           f"edges {len(edges)}\n")
 
