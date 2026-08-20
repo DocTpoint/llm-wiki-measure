@@ -113,3 +113,41 @@ cache state as a covariate you record, not a variable you control.
 `--extract-only` stops the pipeline before the write phase, so the vault is not
 touched. It still calls your model, which costs real time: five draws per arm
 was roughly forty minutes on a local 26B.
+
+## `dedup-candidate-cost.test.ts` and `dedup-candidate-recall.test.ts`
+
+A cost arm and a recall arm for the same design decision, meant to be read
+together. Both are read-only and make no model call; a run over ~2,400 pages
+takes a few seconds.
+
+Semantic dedup sends the LLM a list of existing pages to compare a newly
+extracted name against. A lexical pre-filter keeps the top 30 — but when the
+*name* alone produces no keyword hit, it returns **every** same-type page, on
+the reasoning that a missed duplicate becomes a duplicate page and that this
+case is rare.
+
+**The cost arm** asks how rare. On the vault this was written for: **61% of
+entity dedups and 41% of concept dedups** take the fallback, shipping ~1,295
+pages into a prompt where the filtered path sends 15. In pre-filter-era logs
+those calls averaged 33,745 prompt tokens and 53 seconds to produce an
+18-token answer.
+
+**The recall arm** asks what the fallback buys. A curated alias is an
+alternative name for its own page, and one a model demonstrably produced. The
+arm hides that alias from the index first — a surface form the vault already
+lists is resolved before the LLM is ever called, so leaving it in measures
+nothing (the first version of this probe reported 0.0% and that is what a
+broken arm looks like). Result: the pre-filter drops the correct page in
+**13.6% / 9.8%** of trials even when it does fire.
+
+Two things worth taking from the pair:
+
+**Pass the ranking signal the production caller passes.** Running the recall
+arm with an empty summary reports 21.2% loss; with the summary the real caller
+supplies, 13.6%. Same code, same vault — a probe that starves the ranker
+measures the starvation.
+
+**The two arms answer different questions and must not be pooled.** The cost
+arm asks about names whose page does not exist yet, the recall arm about names
+for a page that does. Their fallback rates differ (61% vs 26%) for that reason
+alone, and averaging them would describe no situation that occurs.
