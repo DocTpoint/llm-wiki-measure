@@ -101,7 +101,9 @@ thermal throttling — lands entirely on the second arm and reads as an effect.
 The cost is that neither arm keeps a warm cache, so the *timings* in the output
 are an artifact of the design and must not be reported as a result.
 
-**Read `failed_calls` and `batches` before the names.** A draw that lost a batch
+**Read `cli_exit`, `failed_calls` and `batches` before the names.** A draw whose
+CLI exited non-zero produced nothing at all, which looks identical to a draw
+where the model found nothing unless you check. A draw that lost a batch
 produced fewer names for a reason unrelated to the arm. On the original run
 every draw of one arm lost its second round to the output-token ceiling — which
 was itself the finding, but only because it was visible per draw rather than

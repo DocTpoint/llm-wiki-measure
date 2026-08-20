@@ -40,7 +40,7 @@ done
 CLI_ARGS=("$@")
 
 for v in ARM_A ARM_B VAULT NOTE; do
-  [[ -n "${!v}" ]] || { echo "missing --${v,,} " | tr '_' '-' >&2; exit 2; }
+  [[ -n "${!v}" ]] || { echo "missing --$(echo "$v" | tr 'A-Z_' 'a-z-')" >&2; exit 2; }
 done
 for d in "$ARM_A" "$ARM_B"; do
   [[ -f "$d/tools/llm-wiki-cli/run-llm-wiki.mjs" ]] || {
@@ -50,33 +50,41 @@ for d in "$ARM_A" "$ARM_B"; do
     echo "$d has no node_modules -- a git worktree does not inherit them" >&2; exit 2; }
 done
 [[ -f "$VAULT/$NOTE" ]] || { echo "no note at $VAULT/$NOTE" >&2; exit 2; }
+[[ "$DRAWS" =~ ^[0-9]+$ && "$DRAWS" -gt 0 ]] || { echo "--draws must be a positive integer" >&2; exit 2; }
 
 : > "$OUT"
+self="${BASH_SOURCE[0]}"; selfdir="$(cd "$(dirname "$self")" && pwd)"
+probe_rev="$(git -C "$selfdir" rev-parse --short HEAD 2>/dev/null || echo '?')"
+[[ -n "$(git -C "$selfdir" status --porcelain -- "$self" 2>/dev/null)" ]] && probe_rev="${probe_rev}+dirty"
+echo "# llm-wiki-measure · $(basename "$self") · ${probe_rev} · $(date '+%Y-%m-%d %H:%M %z')" >&2
 echo "arm a: $(git -C "$ARM_A" rev-parse --short HEAD 2>/dev/null || echo '?')  $ARM_A" >&2
 echo "arm b: $(git -C "$ARM_B" rev-parse --short HEAD 2>/dev/null || echo '?')  $ARM_B" >&2
 echo "note : $NOTE   draws: $DRAWS per arm, interleaved" >&2
 
-for draw in $(seq 1 "$DRAWS"); do
+for ((draw = 1; draw <= DRAWS; draw++)); do
   for arm in a b; do
     dir=$([[ $arm == a ]] && echo "$ARM_A" || echo "$ARM_B")
     start=$(date +%s)
     raw=$(cd "$dir" && WIKI_API_KEY=${WIKI_API_KEY:-unused} \
       node tools/llm-wiki-cli/run-llm-wiki.mjs ingest \
       --vault "$VAULT" --source "$NOTE" --extract-only --force \
-      "${CLI_ARGS[@]}" 2>&1)
+      ${CLI_ARGS[@]+"${CLI_ARGS[@]}"} 2>&1)
+    rc=$?
     end=$(date +%s)
     ent=$(printf '%s\n' "$raw" | grep -m1 '^  entity names'  | sed 's/^  entity names *//')
     con=$(printf '%s\n' "$raw" | grep -m1 '^  concept names' | sed 's/^  concept names *//')
     bat=$(printf '%s\n' "$raw" | grep -m1 'Total batches:'   | sed 's/.*Total batches: *//')
     fail=$(printf '%s\n' "$raw" | grep -c 'Call failed')
     head=$(git -C "$dir" rev-parse --short HEAD 2>/dev/null || echo "")
+    [[ $rc -ne 0 ]] && echo "  cli exited $rc -- see the draw's empty fields" >&2
     python3 -c '
 import json,sys
 print(json.dumps({"draw":int(sys.argv[1]),"arm":sys.argv[2],"head":sys.argv[3],
 "sec":int(sys.argv[4]),"batches":sys.argv[5],"failed_calls":int(sys.argv[6]),
+"cli_exit":int(sys.argv[9]),
 "entities":[x.strip() for x in sys.argv[7].split(",") if x.strip()],
 "concepts":[x.strip() for x in sys.argv[8].split(",") if x.strip()]},ensure_ascii=False))' \
-      "$draw" "$arm" "$head" "$((end-start))" "$bat" "$fail" "$ent" "$con" >> "$OUT"
+      "$draw" "$arm" "$head" "$((end-start))" "$bat" "$fail" "$ent" "$con" "$rc" >> "$OUT"
     printf '[%s] draw %s arm %s  %ss  batches=%s failed=%s\n' \
       "$(date +%H:%M:%S)" "$draw" "$arm" "$((end-start))" "${bat:-?}" "$fail" >&2
   done
