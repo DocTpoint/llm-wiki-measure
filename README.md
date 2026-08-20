@@ -1,14 +1,21 @@
 # llm-wiki-measure
 
-Two read-only probes for an [llm-wiki](https://github.com/green-dalii/obsidian-llm-wiki)
+Read-only probes for an [llm-wiki](https://github.com/green-dalii/obsidian-llm-wiki)
 vault. They answer questions the plugin cannot answer about itself:
 
 1. **Coverage** — how much of the source material actually became graph edges?
 2. **Yield** — what does the graph add over a full-text search and an embedding
    index over the same notes?
+3. **Naming** — which designators are claimed by both page types at once?
 
 No writes, no network beyond your own embedding endpoint, no plugin dependency.
-Python 3.9+, `numpy` for the second script.
+Python 3.9+, `numpy` for `graph-yield.py`.
+
+`designator-span.py` runs against the vault alone and takes seconds. Give it an
+answer you already know via `--expect` before you trust one you do not — the
+flag exists because an earlier version of that probe silently dropped the first
+alias of every page and returned a smaller, entirely plausible number. Its
+`--verify` self-test needs no vault at all.
 
 There is a second family in [`plugin-probes/`](plugin-probes/): probes that run
 *inside* a checkout of the plugin and drive its real functions over your vault.
@@ -26,6 +33,9 @@ python3 coverage-probe.py --vault ~/MyVault
 python3 graph-yield.py --vault ~/MyVault \
     --embed-url http://localhost:1234/v1/embeddings \
     --embed-model text-embedding-bge-m3
+
+python3 designator-span.py --verify
+python3 designator-span.py --vault ~/MyVault --expect SOME-NAME-YOU-KNOW
 ```
 
 Any OpenAI-compatible embedding endpoint works (LM Studio, Ollama, hosted).
