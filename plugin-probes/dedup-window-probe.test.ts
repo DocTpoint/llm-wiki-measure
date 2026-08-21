@@ -19,6 +19,12 @@
 //   3  + text          1 + T per item-summary keyword (>= 5 chars, stop-listed)
 //                      found in the page's own prose (first paragraph excluded)
 //   4  + both          2 + 3
+//   P  shipped window  the production `selectCandidateWindow` (PR for the
+//                      window): lexical + prose with a document-frequency cap
+//                      instead of a stop list; reported at caps 0.5 / 0.25 /
+//                      1.0 (no cap). Meaningful in ITEM_SUMMARY=note mode
+//                      only — in page mode the item summary IS the page's
+//                      first paragraph and the arm would match itself.
 //
 // Two case sets, reported apart and never pooled:
 //
@@ -71,7 +77,8 @@ import { parseFrontmatter } from './core/frontmatter';
 import { ConflictResolver } from './core/conflict-resolver';
 import { localKeywordMatch } from './core/index-search';
 import { selectDedupCandidates } from './wiki/page-factory/path-resolution';
-import { DEDUP_CANDIDATE_TOP_K } from './constants';
+import { DEDUP_CANDIDATE_TOP_K, CANDIDATE_WINDOW_TEXT_CHARS } from './constants';
+import { selectCandidateWindow } from './core/candidate-window';
 import { sourceBaseSlug } from './core/source-slug';
 
 const VAULT = process.env.LLM_WIKI_VAULT!;
@@ -91,6 +98,7 @@ interface Page {
   path: string; title: string; aliases: string[]; ctime: number;
   summary: string;        // first paragraph, 300 chars — the item-summary proxy of the S108 arm
   text: string;           // the rest of the prose, lower-cased, capped — arm 3's matching surface
+  prodText: string;       // the body as getExistingWikiPages ships it: lower-cased, first CANDIDATE_WINDOW_TEXT_CHARS — arm P's surface
   sourceTags: string[][]; // tags of the note behind each `sources:` entry, aligned
   sourceText: string[];   // first 300 chars of that note's body, aligned ('' when unresolved)
   domains: string[];      // union of sourceTags
@@ -180,6 +188,7 @@ function loadPages(folder: 'entities' | 'concepts', preserve: boolean): Page[] {
       ctime: statSync(full).birthtimeMs,
       summary: first.trim().slice(0, 300),
       text: rest.toLowerCase().slice(0, TEXT_CHARS),
+      prodText: body.toLowerCase().slice(0, CANDIDATE_WINDOW_TEXT_CHARS),
       sourceTags, sourceText, domains,
     };
   }).sort((a, b) => a.ctime - b.ctime);
@@ -195,7 +204,7 @@ function textKeywords(summary: string): string[] {
 }
 
 /** Ranks for all five arms: 1-based position of `target` in each arm's ordering; arm 0 may be 'full'. */
-function ranks(item: Item, pool: Page[], target: string): { r0: number | 'full'; r1: number; r2: number; r3: number; r4: number } {
+function ranks(item: Item, pool: Page[], target: string): { r0: number | 'full'; r1: number; r2: number; r3: number; r4: number; p50: number; p25: number; p100: number } {
   // Arm 0: the shipped function.
   const selected = selectDedupCandidates(item.name, item.summary, pool);
   const r0: number | 'full' = selected.length === pool.length
@@ -213,12 +222,21 @@ function ranks(item: Item, pool: Page[], target: string): { r0: number | 'full';
     return order.findIndex(x => x.p.path === target) + 1;
   };
   const l = (p: Page) => lex.get(p.path) ?? 0;
+  // Arm P: the shipped function over the shipped page shape, asked for the
+  // whole ordering (topK = pool size) so the target's rank is readable.
+  const prodPool = pool.map(p => ({ path: p.path, title: p.title, aliases: p.aliases, text: p.prodText }));
+  const prodRank = (dfCap: number) =>
+    selectCandidateWindow({ name: item.name, context: item.summary }, prodPool, prodPool.length, { dfCap })
+      .findIndex(p => p.path === target) + 1;
   return {
     r0,
     r1: rankBy(l),
     r2: rankBy(p => l(p) + W_DOMAIN * dom(p)),
     r3: rankBy(p => l(p) + W_TEXT * txt(p)),
     r4: rankBy(p => l(p) + W_DOMAIN * dom(p) + W_TEXT * txt(p)),
+    p50: prodRank(0.5),
+    p25: prodRank(0.25),
+    p100: prodRank(1.0),
   };
 }
 
@@ -226,6 +244,7 @@ type R = ReturnType<typeof ranks>;
 const ARMS: Array<{ key: keyof R; label: string }> = [
   { key: 'r0', label: '0 status quo' }, { key: 'r1', label: '1 lexical' }, { key: 'r2', label: '2 +domains' },
   { key: 'r3', label: '3 +text' }, { key: 'r4', label: '4 +both' },
+  { key: 'p50', label: 'P df≤0.5' }, { key: 'p25', label: 'P df≤0.25' }, { key: 'p100', label: 'P no cap' },
 ];
 
 function median(xs: number[]): number { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : NaN; }
