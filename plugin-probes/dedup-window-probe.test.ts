@@ -56,6 +56,7 @@
 // | LLM_WIKI_DOMAIN_W      | 3  (one title hit)                        |
 // | LLM_WIKI_TEXT_W        | 1                                         |
 // | LLM_WIKI_TEXT_CHARS    | 2000 (page prose scanned per trial)       |
+// | LLM_WIKI_LIST_ELSEWHERE| unset; 1 = list every alias the resolver sends to another page |
 // | LLM_WIKI_ITEM_SUMMARY  | page | note — set A's item summary: the page's
 // |                        | first paragraph (S108 arm) or the first 300 chars
 // |                        | of the left-out source NOTE (independent text)  |
@@ -82,6 +83,7 @@ const W_DOMAIN = Number(process.env.LLM_WIKI_DOMAIN_W ?? 3);
 const W_TEXT = Number(process.env.LLM_WIKI_TEXT_W ?? 1);
 const TEXT_CHARS = Number(process.env.LLM_WIKI_TEXT_CHARS ?? 2000);
 const ITEM_SUMMARY = (process.env.LLM_WIKI_ITEM_SUMMARY ?? 'page') as 'page' | 'note';
+const LIST_ELSEWHERE = process.env.LLM_WIKI_LIST_ELSEWHERE === '1';
 const K = DEDUP_CANDIDATE_TOP_K;
 
 type PageType = 'entity' | 'concept';
@@ -294,7 +296,11 @@ describe('dedup window probe', () => {
           const pool = pool0.map(hide);
           // The real gate: a name the index still resolves never reaches dedup.
           const cr = new ConflictResolver(WIKI, all.map(hide)).resolve({ name: alias, slug: slugify(alias, preserve), pageType, tags: [] });
-          if (cr.action === 'merge' && !cr.reason.includes('Cross-type')) { resolved++; if (cr.targetPath !== p.path) resolvedElsewhere++; continue; }
+          if (cr.action === 'merge' && !cr.reason.includes('Cross-type')) {
+            resolved++;
+            if (cr.targetPath !== p.path) { resolvedElsewhere++; if (LIST_ELSEWHERE) console.log(`  ELSEWHERE ${JSON.stringify(alias)} carried by ${p.path} → resolver: ${cr.targetPath} (${cr.reason})`); }
+            continue;
+          }
           const itemDomains = DOMAIN_MODE === 'all' ? p.domains : (p.sourceTags[0] ?? []);
           if (itemDomains.length === 0) itemNoDomains++;
           const withDomains = DOMAIN_MODE === 'all' ? pool : pool.map(q => {
