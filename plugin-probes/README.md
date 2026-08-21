@@ -151,3 +151,31 @@ measures the starvation.
 arm asks about names whose page does not exist yet, the recall arm about names
 for a page that does. Their fallback rates differ (61% vs 26%) for that reason
 alone, and averaging them would describe no situation that occurs.
+
+## `ambiguity-probe.test.ts`
+
+Does a name that travels with its domain change the dedup decision? Two arms
+over the same cases and the same model, interleaved draws: A is the plugin's
+`resolveEntityDedup` prompt as it stands, B adds one `domains:` line per
+candidate, one `- Domains:` line on the new item and one sentence on how to read
+them. Everything else is the plugin's own chain over the vault — ConflictResolver
+(cases it decides without a call are reported, not pushed through the model),
+`selectDedupCandidates` (the real window), the prompt, the system prompt via
+SchemaManager. The annotation is synthesized from the notes behind each page's
+`sources:`, because no page carries the field before a rebuild; it is therefore
+the upper bound of what the writer delivers.
+
+The cases are yours: a JSON file of items as the extraction would hand them to
+dedup, each with the expected decision (`LLM_WIKI_CASES`, default
+`<vault>/wiki/schema/ambiguity-cases.json`). `LLM_WIKI_ORACLE_WINDOW=1` appends
+the expected page to the window where the top-K left it out — that separates
+"the annotation did not help" from "the target was not in the list".
+
+Read the preparation report before the numbers. Three of the 18 cases in the
+vault this was written for never reached the model (alias matches in the
+resolver), four had their target outside the top-30 window. On the 15 that ran,
+the annotation changed nothing except one case, for the worse — while the
+full-list fallback missed every synonym in 18 of 18 calls and the same model
+found the same targets 9 of 9 times in a 30-entry window. The lever is the
+window, not the label. One model, 15 cases, three draws; 59 minutes, 0.96 M
+prompt tokens on arm A, 1.51 M on arm B.
