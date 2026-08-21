@@ -179,3 +179,48 @@ full-list fallback missed every synonym in 18 of 18 calls and the same model
 found the same targets 9 of 9 times in a 30-entry window. The lever is the
 window, not the label. One model, 15 cases, three draws; 59 minutes, 0.96 M
 prompt tokens on arm A, 1.51 M on arm B.
+
+## `dedup-window-probe.test.ts`
+
+The probe after the ambiguity probe's finding. If the model finds a synonym's
+target in a 30-entry window and not in a 1,200-entry list, the question is no
+longer whether to cap the list but **which ranking puts the target into 30
+slots** using only what the caller has without a model call. Read-only, no
+model; a run over ~2,400 pages takes 65–95 seconds.
+
+Five window arms, all top-K: the shipped `selectDedupCandidates` (name-gate,
+else the full list) · the same lexical score always ranked · plus a bonus per
+shared domain · plus a bonus per item-summary keyword found in the page's own
+prose · both. Two case sets, never pooled: the synonym cases of the ambiguity
+file that have a target, and every curated alias of every page hidden from the
+index (the S108 recall arm), with trials the ConflictResolver decides without
+a call counted out.
+
+Three design points, because each one flipped a number:
+
+**Leave one source out.** A new mention comes from a note that is not yet
+among the page's sources, so the item carries the tags of the page's first
+source note and the page the union over its others. Give both sides the same
+union (`LLM_WIKI_DOMAIN_MODE=all`) and the target wins the domain bonus by
+construction — 69–79 % in-window, an oracle, not an upper bound. Under
+leave-one-out two thirds of the target pages have no domains left, the bonus
+lifts competitors over them, and the domain arm lands *below* the bare lexical
+arm (24 % vs 27 %).
+
+**Let the item's text come from somewhere else.** With the page's own first
+paragraph as the item summary (the S108 arm) the text arm reaches 50 %; with
+the first 300 characters of the left-out source note, 42 %. The ordering of
+the arms is the same either way — the note-text run is the one to quote,
+because page prose matching its own page is partly authorship, not signal.
+
+**Read ranks, not only the hit rate.** On the ten synonym cases the text arm
+misses four of ten windows but puts all ten targets under rank 100, where the
+lexical arm had five above 380 or in the full list.
+
+On the vault this was written for: the full-list fallback is not worth
+keeping (the always-ranked arm already beats it); text overlap lifts the
+window rate by ~15 points on both sets; domains help only where the page
+already has domains from other notes, which is the minority; and the best
+cheap arm still leaves ~60 % of alias trials outside the window — the part no
+name or word index reaches. Side finding: 47 curated aliases resolve to a
+*different* page than the one carrying them.
