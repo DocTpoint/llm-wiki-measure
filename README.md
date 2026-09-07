@@ -82,7 +82,7 @@ points.
 ## Quick start
 
 ```bash
-git clone https://github.com/DocTpoint/llm-wiki-measure
+git clone https://github.com/GD4AI/llm-wiki-measure
 cd llm-wiki-measure
 
 # the three rebuild probes: seconds, no dependencies
