@@ -2,3 +2,4 @@ __pycache__/
 *.jsonl
 blind-pairs*.md
 *-key.json
+.venv/

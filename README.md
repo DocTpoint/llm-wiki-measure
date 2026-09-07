@@ -338,6 +338,13 @@ plausible number. `--verify` runs its self-test and needs no vault.
 4. **No null model.** Any count of "invisible to the cheap layers" needs a
    shape-matched random graph next to it, or it says nothing.
 
+A note on edge counts: `graph-yield` and `indegree-probe` report different
+numbers of edges on the same vault, and both are right. `graph-yield` counts
+*undirected* page pairs from the Related sections only, because those are
+the edges the plugin drew as relations. `indegree-probe` counts *directed*
+links anywhere in the page body, because a reader can follow any of them.
+On the reference vault that is 2 994 against 4 258.
+
 And a fifth, from the newer probes: **sibling edges.** A graph built from
 notes links the pages of one note to each other by construction. Measure
 concentration without separating those edges and you will measure the
