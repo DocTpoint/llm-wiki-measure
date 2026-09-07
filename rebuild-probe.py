@@ -53,7 +53,7 @@ MENTIONS_TITLES = [
     'Menciones en la fuente', 'Menções na fonte', 'Menzioni nella sorgente',
     'Упоминания в источнике', 'ソースでの言及', '來源提及', '来源提及', '출처 언급',
 ]
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 LINK = re.compile(r"\[\[([^\]|#]+?)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
 
 

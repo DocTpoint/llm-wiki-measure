@@ -65,9 +65,12 @@ source pages and a provenance field, you can point the probes at it:
 | `--notes` | *(every `.md` outside the wiki)* | the folder your notes live in — set it, see below (not used by `indegree-probe`, which reads pages only) |
 | `--page-folders` | `entities,concepts` | wiki subfolders that hold pages |
 | `--sources-folder` | `sources` | wiki subfolder of the per-note source pages |
-| `--provenance-field` | `sources` | frontmatter field listing where a page came from (indegree) |
+| `--provenance-field` | `sources` | frontmatter field listing where a page came from (indegree, coverage) |
 | `--source-field` | `source_file` | frontmatter field on a source page naming its note (picker) |
 | `--related`, `--mentions` | *(every plugin language)* | section titles, repeatable (rebuild) |
+
+`--page-folders` is understood by every probe that reads pages (`designator-span`
+also accepts it under its older name `--folders`); `score-blind` reads no vault.
 
 Do set `--notes` when your notes live in one folder. Without it, every
 markdown file outside the wiki counts as a note — working documents,
@@ -420,7 +423,7 @@ provenance lines.
 
 ## Versioning
 
-Releases are tagged (`v0.2.0` is the first). Each probe carries the version
+Releases are tagged (`v0.2.0` was the first). Each probe carries the version
 in its provenance line. `CHANGELOG.md` lists what changed between versions,
 so that a number quoted with an older version can be compared honestly.
 

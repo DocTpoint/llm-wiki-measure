@@ -49,6 +49,9 @@ RELATED = ("verwandte", "related", "siehe auch", "see also")
 SKIP_DIRS = {".obsidian", ".trash", ".git", "node_modules", ".smart-env"}
 
 
+__version__ = "0.2.1"
+
+
 def stamp():
     """One line naming the exact code that produced the numbers below.
 
@@ -72,7 +75,7 @@ def stamp():
             ver = r.stdout.strip() + ("+dirty" if m.stdout.strip() else "") + " \u00b7 " + ver
     except Exception:
         pass
-    return (f"# llm-wiki-measure \u00b7 {os.path.basename(f)} \u00b7 {ver}\n"
+    return (f"# llm-wiki-measure {__version__} \u00b7 {os.path.basename(f)} \u00b7 {ver}\n"
             f"# {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %z')}")
 
 
@@ -189,6 +192,8 @@ def main():
     ap.add_argument("--k", type=int, default=10)
     ap.add_argument("--hub", type=int, default=30)
     ap.add_argument("--min-alias", type=int, default=3)
+    ap.add_argument("--page-folders", default="entities,concepts",
+                    help="comma-separated wiki subfolders that hold the pages (default: entities,concepts)")
     ap.add_argument("--blind", type=Path, default=Path("blind-pairs.md"))
     ap.add_argument("--per-arm", type=int, default=30)
     ap.add_argument("--seed", type=int, default=0)
@@ -208,7 +213,7 @@ def main():
     for p in sorted(paths):
         notes[p.stem] = body(p.read_text(encoding="utf-8", errors="replace"))
     pages, edges, texts = {}, set(), {}
-    for sub in ("entities", "concepts"):
+    for sub in [x.strip() for x in a.page_folders.split(",") if x.strip()]:
         for p in sorted((wiki / sub).glob("*.md")):
             t = p.read_text(encoding="utf-8", errors="replace")
             fm = frontmatter(t)

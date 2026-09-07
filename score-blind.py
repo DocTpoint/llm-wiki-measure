@@ -13,6 +13,9 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 
+__version__ = "0.2.1"
+
+
 def stamp():
     """One line naming the exact code that produced the numbers below.
 
@@ -36,7 +39,7 @@ def stamp():
             ver = r.stdout.strip() + ("+dirty" if m.stdout.strip() else "") + " \u00b7 " + ver
     except Exception:
         pass
-    return (f"# llm-wiki-measure \u00b7 {os.path.basename(f)} \u00b7 {ver}\n"
+    return (f"# llm-wiki-measure {__version__} \u00b7 {os.path.basename(f)} \u00b7 {ver}\n"
             f"# {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %z')}")
 
 

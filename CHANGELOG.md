@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 — 2026-09-07
+
+- The four older probes carry the version in their provenance line too.
+- `coverage-probe.py` takes `--page-folders` and `--provenance-field`;
+  `graph-yield.py` takes `--page-folders`; `designator-span.py` accepts
+  `--page-folders` as an alias of its existing `--folders`. Defaults
+  unchanged, output unchanged.
+
 ## 0.2.0 — 2026-09-07
 
 - New: `rebuild-probe.py` — strays, dead links split into prose and Related,

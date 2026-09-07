@@ -40,6 +40,9 @@ URL_RE = re.compile(r"https?://\S+|\]\([^)]*\)|\bwww\.\S+")
 SKIP_DIRS = {".obsidian", ".trash", ".git", "node_modules"}
 
 
+__version__ = "0.2.1"
+
+
 def stamp():
     """One line naming the exact code that produced the numbers below.
 
@@ -63,7 +66,7 @@ def stamp():
             ver = r.stdout.strip() + ("+dirty" if m.stdout.strip() else "") + " \u00b7 " + ver
     except Exception:
         pass
-    return (f"# llm-wiki-measure \u00b7 {os.path.basename(f)} \u00b7 {ver}\n"
+    return (f"# llm-wiki-measure {__version__} \u00b7 {os.path.basename(f)} \u00b7 {ver}\n"
             f"# {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %z')}")
 
 
@@ -108,6 +111,10 @@ def main():
     ap.add_argument("--wiki", default="wiki", help="wiki folder name")
     ap.add_argument("--notes", default=None,
                     help="notes folder; default: every .md outside the wiki folder")
+    ap.add_argument("--page-folders", default="entities,concepts",
+                    help="comma-separated wiki subfolders that hold the pages (default: entities,concepts)")
+    ap.add_argument("--provenance-field", default="sources",
+                    help="frontmatter field listing the source pages a page was built from (default: sources)")
     ap.add_argument("--min-alias", type=int, default=3,
                     help="ignore aliases shorter than this (acronym noise)")
     ap.add_argument("--json", type=Path, default=None)
@@ -131,7 +138,8 @@ def main():
         sys.exit("no notes found — pass --notes")
 
     pages = {}
-    for sub in ("entities", "concepts"):
+    page_folders = [x.strip() for x in a.page_folders.split(",") if x.strip()]
+    for sub in page_folders:
         for p in sorted((wiki / sub).glob("*.md")):
             raw = p.read_text(encoding="utf-8", errors="replace")
             fm = frontmatter(raw)
@@ -142,11 +150,11 @@ def main():
             pages[p.stem] = {
                 "title": title, "kind": sub, "tags": fm_list(fm, "tags"),
                 "sources": [re.sub(r".*?/", "", s.strip("[]")).strip()
-                            for s in fm_list(fm, "sources")],
+                            for s in fm_list(fm, a.provenance_field)],
                 "needles": sorted({n for n in names if n}),
             }
     if not pages:
-        sys.exit(f"no pages under {wiki}/entities and {wiki}/concepts")
+        sys.exit(f"no pages under {wiki}/{{{','.join(page_folders)}}}")
 
     bystem = {norm(k): k for k in notes}
     for pg in pages.values():

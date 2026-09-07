@@ -50,6 +50,9 @@ from collections import defaultdict
 INVALID = re.compile(r'[\x00-\x1f]|[/\\:*?"<>|,()\'!?、，。；：！？（）【】《》]')
 
 
+__version__ = "0.2.1"
+
+
 def stamp():
     """One line naming the exact code that produced the numbers below.
 
@@ -73,7 +76,7 @@ def stamp():
             ver = r.stdout.strip() + ("+dirty" if m.stdout.strip() else "") + " \u00b7 " + ver
     except Exception:
         pass
-    return (f"# llm-wiki-measure \u00b7 {os.path.basename(f)} \u00b7 {ver}\n"
+    return (f"# llm-wiki-measure {__version__} \u00b7 {os.path.basename(f)} \u00b7 {ver}\n"
             f"# {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %z')}")
 
 
@@ -188,8 +191,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--vault", type=str, help="vault root")
     ap.add_argument("--wiki", default="wiki", help="wiki folder name")
-    ap.add_argument("--folders", default="entities,concepts",
-                    help="the two page-type folders")
+    ap.add_argument("--folders", "--page-folders", dest="folders", default="entities,concepts",
+                    help="comma-separated wiki subfolders that hold the pages (default: entities,concepts)")
     ap.add_argument("--expect", action="append", default=[], metavar="DESIGNATOR",
                     help="a designator you already know spans; exits non-zero if "
                          "it is missing. Use it before trusting an answer you "
