@@ -13,7 +13,9 @@ the concentration: the top page, the share the top 5 / top 10 hold, the
 pages nobody links to, and a Gini coefficient over the in-degrees.
 
 Then it does the same over a subset: edges between pages that share NO source
-in their `sources:` frontmatter. The plugin (and the deterministic related
+in their provenance frontmatter (`sources:` by default, --provenance-field).
+Folder names are parameters too (--page-folders, --sources-folder), so any
+compiled wiki that records where a page came from can be measured. The plugin (and the deterministic related
 lists since v1.27.1) writes links between the pages born from the same note —
 siblings. Those edges are real, but they are a function of the ingest, not
 of the model's judgement about relatedness across notes. On the reference
@@ -31,6 +33,7 @@ import argparse, json, re, unicodedata
 from collections import Counter
 from pathlib import Path
 
+__version__ = "0.2.0"
 LINK = re.compile(r"\[\[([^\]|#]+?)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
 
 
@@ -57,7 +60,7 @@ def stamp():
             ver = r.stdout.strip() + ("+dirty" if m.stdout.strip() else "") + " · " + ver
     except Exception:
         pass
-    return (f"# llm-wiki-measure · {os.path.basename(f)} · {ver}\n"
+    return (f"# llm-wiki-measure {__version__} · {os.path.basename(f)} · {ver}\n"
             f"# {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %z')}")
 
 
@@ -111,13 +114,21 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--vault", required=True, type=Path)
     ap.add_argument("--wiki", default="wiki", help="wiki folder name")
+    ap.add_argument("--page-folders", default="entities,concepts",
+                    help="comma-separated wiki subfolders that hold the pages (default: entities,concepts)")
+    ap.add_argument("--sources-folder", default="sources",
+                    help="wiki subfolder of the per-note source pages; links there are not edges (default: sources)")
+    ap.add_argument("--provenance-field", default="sources",
+                    help="frontmatter field listing the source pages a page was built from (default: sources)")
     ap.add_argument("--top", type=int, default=10)
     ap.add_argument("--json", type=Path, default=None)
     a = ap.parse_args()
     wiki = a.vault / a.wiki
 
     pages, sources, bodies, by_name = {}, {}, {}, {}
-    for folder in ("entities", "concepts"):
+    prov_re = re.compile(r"^" + re.escape(a.provenance_field) + r":\s*(?:\[(.*)\]|\n((?:\s*-\s*.*\n?)+))", re.M)
+    src_prefix = a.sources_folder + "/"
+    for folder in [x.strip() for x in a.page_folders.split(",") if x.strip()]:
         d = wiki / folder
         if not d.is_dir():
             continue
@@ -126,7 +137,9 @@ def main():
             fm, body = split(f.read_text(encoding="utf-8", errors="ignore"))
             pages[key] = f
             bodies[key] = body
-            sources[key] = {nfc(m.group(1)).split("/")[-1] for m in LINK.finditer(fm) if "sources/" in m.group(1)}
+            pm = prov_re.search(fm)
+            prov_text = (pm.group(1) or pm.group(2) or "") if pm else ""
+            sources[key] = {nfc(m.group(1)).split("/")[-1] for m in LINK.finditer(prov_text)}
             by_name.setdefault(fold(f.stem), key)
             for al in aliases(fm):
                 by_name.setdefault(fold(al), key)
@@ -142,7 +155,7 @@ def main():
     for k, body in bodies.items():
         seen = set()
         for m in LINK.finditer(body):
-            if m.group(1).startswith("sources/"):
+            if m.group(1).startswith(src_prefix):
                 continue
             t = resolve(m.group(1))
             if not t or t == k or t in seen:

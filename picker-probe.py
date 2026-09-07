@@ -6,7 +6,7 @@ or the ones that sort first?
 Read-only. No LLM, no network, no plugin. Runs against any llm-wiki vault.
 
 The set of ingested notes is read from the `source_file:` field of the
-source pages. It is compared with two other sets of the same size:
+source pages (--source-field, --sources-folder to change the names). It is compared with two other sets of the same size:
 
   alphabetical  the first N notes by filename — what a folder ingest does.
   reference     the N notes most often linked as `[[Title]]` from the other
@@ -29,6 +29,9 @@ usage:
 """
 import argparse, json, re, unicodedata
 from pathlib import Path
+
+
+__version__ = "0.2.0"
 
 
 def stamp():
@@ -54,7 +57,7 @@ def stamp():
             ver = r.stdout.strip() + ("+dirty" if m.stdout.strip() else "") + " · " + ver
     except Exception:
         pass
-    return (f"# llm-wiki-measure · {os.path.basename(f)} · {ver}\n"
+    return (f"# llm-wiki-measure {__version__} · {os.path.basename(f)} · {ver}\n"
             f"# {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %z')}")
 
 
@@ -73,6 +76,10 @@ def main():
     ap.add_argument("--wiki", default="wiki", help="wiki folder name")
     ap.add_argument("--notes", default=None,
                     help="notes folder; default: every .md outside the wiki folder")
+    ap.add_argument("--sources-folder", default="sources",
+                    help="wiki subfolder of the per-note source pages (default: sources)")
+    ap.add_argument("--source-field", default="source_file",
+                    help="frontmatter field on a source page naming the note it came from (default: source_file)")
     ap.add_argument("--json", type=Path, default=None)
     a = ap.parse_args()
 
@@ -87,15 +94,16 @@ def main():
     titles = sorted(notes)
 
     picked = set()
-    for f in (a.vault / a.wiki / "sources").glob("*.md"):
+    field_re = re.compile(r'^' + re.escape(a.source_field) + r':\s*"?\[\[(?:[^\]|/]+/)?([^\]|]+?)(?:\.md)?\]\]"?', re.M)
+    for f in (a.vault / a.wiki / a.sources_folder).glob("*.md"):
         t = f.read_text(encoding="utf-8", errors="ignore")
-        m = re.search(r'^source_file:\s*"?\[\[(?:[^\]|/]+/)?([^\]|]+?)(?:\.md)?\]\]"?', t, re.M)
+        m = field_re.search(t)
         if m and nfc(m.group(1)) in notes:
             picked.add(nfc(m.group(1)))
     n = len(picked)
     if not n:
         print(stamp())
-        print("no source page names a note — nothing ingested, or source_file has another shape")
+        print("no source page names a note — nothing ingested, or the source field has another shape")
         return
 
     text = "\n".join(p.read_text(encoding="utf-8", errors="ignore") for p in notes.values())

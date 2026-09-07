@@ -26,6 +26,9 @@ first. The July rebuild of the reference vault had 30 % strays; the frontier-
 picked rebuild has 1 %. The dead-link split says whether a fix at the write
 gate (Related) or in the prompt (prose) is the one that would move the number.
 
+Folder names and the provenance field are the plugin's defaults and can be
+changed (--page-folders, --sources-folder), so any vault that keeps typed
+page folders plus one folder of per-note source pages can be measured.
 Resolution follows the plugin: a target resolves if its folder-qualified path
 exists, or if its bare name (case-folded, `-`/`_` treated as space) matches a
 page basename or alias. Section titles are matched against every language the
@@ -50,8 +53,8 @@ MENTIONS_TITLES = [
     'Menciones en la fuente', 'Menções na fonte', 'Menzioni nella sorgente',
     'Упоминания в источнике', 'ソースでの言及', '來源提及', '来源提及', '출처 언급',
 ]
+__version__ = "0.2.0"
 LINK = re.compile(r"\[\[([^\]|#]+?)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
-FOLDERS = ("entities", "concepts", "sources")
 
 
 def stamp():
@@ -77,7 +80,7 @@ def stamp():
             ver = r.stdout.strip() + ("+dirty" if m.stdout.strip() else "") + " · " + ver
     except Exception:
         pass
-    return (f"# llm-wiki-measure · {os.path.basename(f)} · {ver}\n"
+    return (f"# llm-wiki-measure {__version__} · {os.path.basename(f)} · {ver}\n"
             f"# {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %z')}")
 
 
@@ -147,6 +150,10 @@ def main():
     ap.add_argument("--wiki", default="wiki", help="wiki folder name")
     ap.add_argument("--notes", default=None,
                     help="notes folder; default: every .md outside the wiki folder")
+    ap.add_argument("--page-folders", default="entities,concepts",
+                    help="comma-separated wiki subfolders that hold the pages (default: entities,concepts)")
+    ap.add_argument("--sources-folder", default="sources",
+                    help="wiki subfolder that holds the per-note source pages (default: sources)")
     ap.add_argument("--related", action="append", default=None,
                     help="Related section title (repeatable); default: every plugin language")
     ap.add_argument("--mentions", action="append", default=None,
@@ -157,6 +164,8 @@ def main():
     related_titles = a.related or RELATED_TITLES
     mentions_titles = a.mentions or MENTIONS_TITLES
     wiki = a.vault / a.wiki
+    page_folders = [x.strip() for x in a.page_folders.split(",") if x.strip()]
+    FOLDERS = tuple(page_folders) + (a.sources_folder,)
 
     pages, names = {}, {}
     for folder in FOLDERS:
@@ -183,7 +192,7 @@ def main():
                 return folder + "/" + nfc(slug) if folder + "/" + nfc(slug) in pages else None
         return names.get(fold(target))
 
-    ec = {k: v for k, v in pages.items() if not k.startswith("sources/")}
+    ec = {k: v for k, v in pages.items() if not k.startswith(a.sources_folder + "/")}
     strays, ghosts = [], Counter()
     total_links = prose_dead = rel_total = rel_dead = rel_dead_note = 0
     rel_dead_targets = Counter()
@@ -234,8 +243,8 @@ def main():
     n = len(ec)
     ghost_notes = sum(1 for g in ghosts if fold(g.split("/")[-1]) in notes)
     print(stamp())
-    print(f"pages {n} (entities {sum(1 for k in ec if k.startswith('entities'))} / "
-          f"concepts {sum(1 for k in ec if k.startswith('concepts'))}), source pages {len(pages) - n}, notes {len(set(notes.values()))}")
+    per_folder = ", ".join(f"{pf} {sum(1 for k in ec if k.startswith(pf + '/'))}" for pf in page_folders)
+    print(f"pages {n} ({per_folder}), source pages {len(pages) - n}, notes {len(set(notes.values()))}")
     print(f"links in body (mentions excluded) {total_links}; dead: prose {prose_dead}, related {rel_dead}")
     print(f"strays (no live outgoing link) {len(strays)} = {100 * len(strays) / max(n, 1):.0f} %")
     print(f"related {rel_dead}/{rel_total} dead = {100 * rel_dead / max(rel_total, 1):.0f} %; "
