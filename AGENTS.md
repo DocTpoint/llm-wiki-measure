@@ -38,9 +38,11 @@ what the probes do; this file says what must not change while doing it.
 ## Running
 
 - Python 3.9+. Only `graph-yield` needs `numpy`; use the ignored `.venv/`.
-- `graph-yield` needs an OpenAI-compatible embedding endpoint. Do not start it
-  while the same endpoint is serving an ingest: the load is serialised, the
-  ingest's timing is contaminated, and the model load may be refused.
+- `graph-yield` needs an OpenAI-compatible embedding endpoint. If that
+  endpoint is also serving an ingest, load the embedding model first — a
+  just-in-time load next to a busy generator was refused on LM Studio. A small
+  embedder running beside the ingest did not measurably slow it (one probe,
+  one machine); if you need the ingest's timing clean, run the probe after it.
 - Give `--notes` when the notes live in one folder; without it every `.md`
   outside the wiki counts as a note.
 
