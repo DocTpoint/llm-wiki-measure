@@ -7,6 +7,12 @@ vault. They answer questions the plugin cannot answer about itself:
 2. **Yield** — what does the graph add over a full-text search and an embedding
    index over the same notes?
 3. **Naming** — which designators are claimed by both page types at once?
+4. **Rebuild** — is the graph a graph? Strays, dead links split into prose
+   and Related, ghost targets that are really an un-ingested note.
+5. **In-degree** — who draws the links, and would they still if the edges
+   between pages born from the same note were taken away?
+6. **Picker** — did the ingest order choose the notes the vault refers to,
+   or the ones that sort first?
 
 No writes, no network beyond your own embedding endpoint, no plugin dependency.
 Python 3.9+, `numpy` for `graph-yield.py`.
@@ -42,7 +48,26 @@ python3 graph-yield.py --vault ~/MyVault \
 
 python3 designator-span.py --verify
 python3 designator-span.py --vault ~/MyVault --expect SOME-NAME-YOU-KNOW
+
+python3 rebuild-probe.py  --vault ~/MyVault --notes Notes
+python3 indegree-probe.py --vault ~/MyVault
+python3 picker-probe.py   --vault ~/MyVault --notes Notes
 ```
+
+The three rebuild probes take seconds and need nothing but the vault. Give
+them `--notes` when your notes live in one folder: without it every `.md`
+outside the wiki counts as a note, working documents included, and the
+picker's reference ranking shifts by a few points. Section titles of the
+Related and Mentions blocks are matched in every language the plugin ships;
+`--related` / `--mentions` override them.
+
+Two numbers from these probes are easy to misread. The in-degree probe's
+first block is dominated by *sibling* edges — pages born from the same note
+link each other by construction (94–98 % of all edges on the reference
+vault); the second block, edges between pages that share no source, is the
+graph the model actually drew, and it is thin. The picker probe measures the
+choice of notes, not its consequence: whether a different order leaves a
+different graph needs the same vault built twice.
 
 Any OpenAI-compatible embedding endpoint works (LM Studio, Ollama, hosted).
 A multilingual model matters if your notes are not in English: an English-only
