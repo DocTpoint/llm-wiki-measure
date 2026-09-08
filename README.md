@@ -32,6 +32,7 @@ embedding comparison.
   - [picker-probe — did the ingest order choose well?](#picker-probe)
   - [coverage-probe — how much of the notes reached the graph?](#coverage-probe)
   - [graph-yield — what does the graph add over search and embeddings?](#graph-yield)
+  - [forced-choice — is that a tie, or a blunt instrument?](#forced-choice)
   - [designator-span — which names are claimed twice?](#designator-span)
 - [Four ways to fool yourself](#four-ways-to-fool-yourself-all-of-which-happened-here)
 - [A worked example](#a-worked-example)
@@ -96,6 +97,11 @@ python3 coverage-probe.py --vault ~/MyVault --notes Notes
 # names claimed by both page types: seconds; --verify needs no vault
 python3 designator-span.py --verify
 python3 designator-span.py --vault ~/MyVault --expect SOME-NAME-YOU-KNOW
+
+# a tie between two arms, forced apart: seconds, no dependencies
+python3 forced-choice.py --blind pool.md --key pool-key.json \
+    --arms "A graph" "C embedding" --duels 60 --out duels.md
+python3 score-duels.py --choices my.txt --key duels-key.json
 
 # graph versus search versus embeddings: minutes, needs numpy + an endpoint
 python3 graph-yield.py --vault ~/MyVault \
@@ -300,12 +306,54 @@ So the probe ends by writing a blind rating list: equal numbers of pairs
 per arm, shuffled, unlabelled, with the key in a separate file. Rate it —
 yourself, or with a model — then score it with `score-blind.py`, which
 reports per-arm shares with Wilson intervals. Rate before you look at the
-key.
+key. If two arms come out close, that is not a tie — take them into a
+[forced-choice](#forced-choice) round.
 
 Any OpenAI-compatible embedding endpoint works (LM Studio, Ollama, hosted).
 Use a multilingual model if your notes are not in English: an English-only
 model finds fewer of the graph's edges, and every edge it misses is
 credited to the graph as its own achievement.
+
+### forced-choice
+
+**Question:** two arms scored about the same in the blind rating — is that a
+tie, or an instrument too blunt to separate them?
+
+**Why it exists.** `score-blind.py` asks *does this connection carry?* one line
+at a time, and a rater who wants to be fair says yes to both arms. A generous
+yes costs nothing, and a determined reader can construct a story for almost any
+pair. On the reference vault that showed as a **13 % floor on the randomly
+rewired arm** — four pairs out of thirty that the rater talked himself into,
+three of them after looking up literature. A floor that high eats most of the
+distance between the arms above it, and it is not a property of the arm: it is
+the rater's own construction rate.
+
+**How it measures.** `forced-choice.py` reshapes a `graph-yield` blind list into
+duels: one pair from each of two arms, side by side, left and right assigned by
+coin flip, and the rater must pick one. Saying *both are fine* is gone, and so
+is *both are junk* — if both are junk, the less bad one still carries the
+signal. `score-duels.py` reports how often each arm won, a Wilson interval, a
+two-sided binomial p against a coin flip, and — the failure mode of this design
+— the **side bias**. If the left-hand side wins far from half the time, the
+rater leaned rather than judged and the round is spoiled.
+
+On the reference vault the two arms that the y/n round had put at 47 % and
+53 % came out at **23 % and 77 %** over 60 duels, side bias 50 %. The tie was
+the instrument, not the arms.
+
+**Contamination.** A rater who has already scored some of these pairs is not
+blind to them any more. Draw a fresh pool (`graph-yield --seed N --per-arm M`)
+and pass the pairs already seen to `--exclude`; the pair text is matched, not
+its number. Check that the filter bites — held against the pool itself it must
+leave nothing.
+
+```bash
+python3 forced-choice.py --blind pool.md --key pool-key.json \
+    --arms "A graph" "C embedding" --exclude already-rated.md \
+    --duels 60 --out duels.md
+# rate duels.md, then:
+python3 score-duels.py --choices my.txt --key duels-key.json
+```
 
 ### designator-span
 

@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.3.0 — 2026-09-08
+
+- New: `forced-choice.py` — turns a `graph-yield` blind list into duels
+  between two arms: one pair from each, side by side, side assigned by coin
+  flip, no tie on offer. `--exclude` drops pairs the rater has already scored,
+  matched by pair text rather than by number.
+- New: `score-duels.py` — win share per arm with a Wilson interval, a
+  two-sided binomial p against a coin flip, and the side bias, which is the
+  failure mode of the design: a rater who leans left produces a difference out
+  of nothing.
+- Why they exist: on the reference vault the y/n round of `score-blind.py` put
+  two arms at 47 % and 53 % — indistinguishable at n=30 — while the rewired
+  control arm sat at 13 %, a floor that is the rater's construction rate and
+  not a property of the arm. Forced apart over 60 duels the same two arms came
+  out at 23 % and 77 %, side bias 50 %. A close y/n result is a blunt
+  instrument, not a tie.
+- README: the two probes in the table of contents, the quick start and a
+  section of their own, including the contamination rule — a fresh pool and
+  `--exclude`, because a rater is no longer blind to pairs already scored.
+- Version bumped in every probe's provenance line; no probe changed what it
+  counts.
+
 ## 0.2.1 — 2026-09-07
 
 - The four older probes carry the version in their provenance line too.

@@ -33,7 +33,7 @@ import argparse, json, re, unicodedata
 from collections import Counter
 from pathlib import Path
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 LINK = re.compile(r"\[\[([^\]|#]+?)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
 
 
