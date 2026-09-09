@@ -27,11 +27,11 @@ vault built twice.
 usage:
     python3 picker-probe.py --vault ~/Vault [--wiki wiki] [--notes Notes]
 """
-import argparse, json, re, unicodedata
+import argparse, json, os, re, unicodedata
 from pathlib import Path
 
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 
 def stamp():
@@ -70,6 +70,36 @@ def median(xs):
     return xs[len(xs) // 2] if xs else 0
 
 
+def note_files(vault, wiki, notes_dir, skip=()):
+    """Every note file: under --notes if given, else every .md outside the wiki.
+
+    Symlinked folders are walked. A vault that keeps its notes behind a
+    symlink used to yield nothing here, and an empty note set is not
+    distinguishable in the output from a vault that has no notes.
+    """
+    if notes_dir:
+        root = Path(notes_dir).expanduser()
+        if not root.is_absolute():
+            root = vault / root
+        if not root.is_dir():
+            raise SystemExit(f"no notes folder at {root}")
+        skip_wiki = False
+    else:
+        root, skip_wiki = vault, True
+    seen = set()
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=True):
+        real = os.path.realpath(dirpath)
+        if real in seen:
+            dirnames[:] = []
+            continue
+        seen.add(real)
+        dirnames[:] = [d for d in dirnames if not d.startswith(".") and d not in skip
+                       and not (skip_wiki and Path(dirpath) == root and d == wiki)]
+        for fn in sorted(filenames):
+            if fn.endswith(".md"):
+                yield Path(dirpath) / fn
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--vault", required=True, type=Path)
@@ -83,14 +113,9 @@ def main():
     ap.add_argument("--json", type=Path, default=None)
     a = ap.parse_args()
 
-    roots = [a.vault / a.notes] if a.notes else [a.vault]
     notes = {}
-    for root in roots:
-        for f in root.rglob("*.md"):
-            rel = f.relative_to(a.vault)
-            if rel.parts and (rel.parts[0] == a.wiki or rel.parts[0].startswith(".")):
-                continue
-            notes[nfc(f.stem)] = f
+    for f in note_files(a.vault, a.wiki, a.notes):
+        notes[nfc(f.stem)] = f
     titles = sorted(notes)
 
     picked = set()

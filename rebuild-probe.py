@@ -37,7 +37,7 @@ plugin ships; pass --related / --mentions to override.
 usage:
     python3 rebuild-probe.py --vault ~/Vault [--wiki wiki] [--notes Notes] [-v]
 """
-import argparse, json, re, sys, unicodedata
+import argparse, json, os, re, sys, unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -53,7 +53,7 @@ MENTIONS_TITLES = [
     'Menciones en la fuente', 'Menções na fonte', 'Menzioni nella sorgente',
     'Упоминания в источнике', 'ソースでの言及', '來源提及', '来源提及', '출처 언급',
 ]
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 LINK = re.compile(r"\[\[([^\]|#]+?)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
 
 
@@ -125,22 +125,48 @@ def sections(text, titles):
         r"^## (?:" + alt + r")\s*\n(.*?)(?=^## |\Z)", text, re.S | re.M)]
 
 
+def note_files(vault, wiki, notes_dir):
+    """Every note file: under --notes if given, else every .md outside the wiki.
+
+    Symlinked folders are walked. A vault that keeps its notes behind a
+    symlink used to yield nothing here, and an empty note set is not
+    distinguishable in the output from a vault that has no notes -- it turns
+    the frontier and birth counts silently into zeros.
+    """
+    if notes_dir:
+        root = Path(notes_dir).expanduser()
+        if not root.is_absolute():
+            root = vault / root
+        if not root.is_dir():
+            raise SystemExit(f"no notes folder at {root}")
+        skip_wiki = False
+    else:
+        root, skip_wiki = vault, True
+    seen = set()
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=True):
+        real = os.path.realpath(dirpath)
+        if real in seen:
+            dirnames[:] = []
+            continue
+        seen.add(real)
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")
+                       and not (skip_wiki and Path(dirpath) == root and d == wiki)]
+        for fn in sorted(filenames):
+            if fn.endswith(".md"):
+                yield Path(dirpath) / fn
+
+
 def load_notes(vault, wiki, notes_dir):
     """fold(title or alias) -> title, for every note outside the wiki."""
     notes = {}
-    roots = [vault / notes_dir] if notes_dir else [vault]
-    for root in roots:
-        for f in root.rglob("*.md"):
-            rel = f.relative_to(vault)
-            if rel.parts and (rel.parts[0] == wiki or rel.parts[0].startswith(".")):
-                continue
-            title = nfc(f.stem)
-            notes[fold(title)] = title
-            try:
-                for a in aliases(f.read_text(encoding="utf-8", errors="ignore")):
-                    notes[fold(a)] = title
-            except OSError:
-                pass
+    for f in note_files(vault, wiki, notes_dir):
+        title = nfc(f.stem)
+        notes[fold(title)] = title
+        try:
+            for a in aliases(f.read_text(encoding="utf-8", errors="ignore")):
+                notes[fold(a)] = title
+        except OSError:
+            pass
     return notes
 
 

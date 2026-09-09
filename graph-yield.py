@@ -33,7 +33,7 @@ usage:
       --embed-url http://localhost:1234/v1/embeddings \\
       --embed-model text-embedding-bge-m3
 """
-import argparse, json, math, random, re, sys, time, urllib.request
+import argparse, json, math, os, random, re, sys, time, urllib.request
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -49,7 +49,7 @@ RELATED = ("verwandte", "related", "siehe auch", "see also")
 SKIP_DIRS = {".obsidian", ".trash", ".git", "node_modules", ".smart-env"}
 
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 
 def stamp():
@@ -179,6 +179,36 @@ def compositional(edges, cooc, near, hub):
     return mid, keep, deg, hubs
 
 
+def note_files(vault, wiki, notes_dir, skip=()):
+    """Every note file: under --notes if given, else every .md outside the wiki.
+
+    Symlinked folders are walked. A vault that keeps its notes behind a
+    symlink used to yield nothing here, and an empty note set is not
+    distinguishable in the output from a vault that has no notes.
+    """
+    if notes_dir:
+        root = Path(notes_dir).expanduser()
+        if not root.is_absolute():
+            root = vault / root
+        if not root.is_dir():
+            raise SystemExit(f"no notes folder at {root}")
+        skip_wiki = False
+    else:
+        root, skip_wiki = vault, True
+    seen = set()
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=True):
+        real = os.path.realpath(dirpath)
+        if real in seen:
+            dirnames[:] = []
+            continue
+        seen.add(real)
+        dirnames[:] = [d for d in dirnames if not d.startswith(".") and d not in skip
+                       and not (skip_wiki and Path(dirpath) == root and d == wiki)]
+        for fn in sorted(filenames):
+            if fn.endswith(".md"):
+                yield Path(dirpath) / fn
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--vault", required=True, type=Path)
@@ -206,11 +236,7 @@ def main():
         sys.exit(f"no wiki folder at {wiki}")
 
     notes = {}
-    paths = ((vault / a.notes).rglob("*.md") if a.notes
-             else (p for p in vault.rglob("*.md")
-                   if wiki not in p.parents
-                   and not SKIP_DIRS & set(p.relative_to(vault).parts)))
-    for p in sorted(paths):
+    for p in note_files(vault, a.wiki, a.notes, SKIP_DIRS):
         notes[p.stem] = body(p.read_text(encoding="utf-8", errors="replace"))
     pages, edges, texts = {}, set(), {}
     for sub in [x.strip() for x in a.page_folders.split(",") if x.strip()]:

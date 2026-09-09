@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.1 — 2026-09-09
+
+- Fix: the four probes that read notes (`rebuild-probe`, `picker-probe`,
+  `coverage-probe`, `graph-yield`) now walk symlinked folders and accept an
+  absolute `--notes` path. A vault whose notes folder is a symlink came out as
+  `notes 0` without a word of warning, and every count that needs the notes —
+  the frontier share of the dead links, the ghost targets that are really
+  uningested notes, the birth counts — silently became zero or meaningless.
+  An absolute `--notes` outside the vault crashed with a `ValueError` from
+  `relative_to` instead of a message.
+- A `--notes` folder that does not exist now exits with `no notes folder at
+  <path>` instead of counting nothing.
+- No probe changed what it counts: all four print identical numbers on a
+  vault with a plain notes folder, checked before and after against the
+  reference vault.
+
 ## 0.3.0 — 2026-09-08
 
 - New: `forced-choice.py` — turns a `graph-yield` blind list into duels
