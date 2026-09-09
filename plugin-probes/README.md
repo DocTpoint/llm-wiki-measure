@@ -254,6 +254,21 @@ lands at 509 of 957.
 `LLM_WIKI_ALIAS_LIMIT` (default 200 per page type) caps the alias draw, since
 every trial costs one embedding; the seed fixes the draw only for one pool.
 
+**Encoders that want a task prefix.** `LLM_WIKI_EMBED_DOC_PREFIX` and
+`LLM_WIKI_EMBED_QUERY_PREFIX` are empty by default, which is correct for bge-m3
+and wrong for several other families: Qwen3-Embedding asks for an instruction on
+the query side and nothing on the document side, the E5 family prefixes both.
+Run such a model without its prefix and the arm measures misuse, not the
+encoder. The prefix rides in the embedded text itself, so the cache key
+separates a prefixed run from an unprefixed one, and the run header prints both.
+
+⚠️ **The recall arm is saturated on a built vault.** At 99.5 / 95.6 % it can no
+longer tell two encoders apart — S176 ran bge-m3 against Qwen3-Embedding-0.6B
+over one substrate and they landed within a percentage point of each other, on
+identical median ranks. That answers the "one vault, one encoder" objection and
+retires the question here; a further encoder comparison belongs at the precision
+arm, where the distributions are not against the ceiling.
+
 ⚠️ Run it with `--disable-console-intercept` (or `--reporter=verbose
 --silent=false`). Outside a TTY vitest swallows a probe's console output and
 reports a passing test with nothing in it.

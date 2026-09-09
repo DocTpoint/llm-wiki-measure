@@ -49,6 +49,8 @@
 // | LLM_WIKI_EMBED_URL      | http://localhost:1234/v1/embeddings      |
 // | LLM_WIKI_EMBED_MODEL    | text-embedding-bge-m3                    |
 // | LLM_WIKI_EMBED_BATCH    | 32                                       |
+// | LLM_WIKI_EMBED_DOC_PREFIX   | '' (bge-m3 wants none)               |
+// | LLM_WIKI_EMBED_QUERY_PREFIX | '' (Qwen3: "Instruct: ...\nQuery: ") |
 // | LLM_WIKI_EMBED_CACHE    | ./embeddings-window.jsonl                |
 // | LLM_WIKI_ALIAS_LIMIT    | 200                                      |
 // | LLM_WIKI_SEED           | 0                                        |
@@ -74,6 +76,13 @@ const EMBED_URL = process.env.LLM_WIKI_EMBED_URL ?? 'http://localhost:1234/v1/em
 const EMBED_MODEL = process.env.LLM_WIKI_EMBED_MODEL ?? 'text-embedding-bge-m3';
 const EMBED_BATCH = Number(process.env.LLM_WIKI_EMBED_BATCH ?? 32);
 const CACHE = process.env.LLM_WIKI_EMBED_CACHE ?? 'embeddings-window.jsonl';
+// Encoders that ask for a task prefix. bge-m3 wants none; Qwen3-Embedding asks
+// for an instruction on the QUERY side only; the E5 family prefixes both sides.
+// Empty by default, so a run without them is byte-identical to the one on
+// record. The prefix rides in the embedded text itself, which is what the cache
+// key is built from - a prefixed and an unprefixed run never share a vector.
+const DOC_PREFIX = process.env.LLM_WIKI_EMBED_DOC_PREFIX ?? '';
+const QUERY_PREFIX = process.env.LLM_WIKI_EMBED_QUERY_PREFIX ?? '';
 const ALIAS_LIMIT = Number(process.env.LLM_WIKI_ALIAS_LIMIT ?? 200);
 const SEED = Number(process.env.LLM_WIKI_SEED ?? 0);
 const K = DEDUP_CANDIDATE_TOP_K;
@@ -196,7 +205,7 @@ function loadPages(folder: 'entities' | 'concepts', preserve: boolean): Page[] {
       // same characters in their own casing, which is the form the encoder was
       // trained on. Same information, each arm in its own idiom.
       text: body.toLowerCase().slice(0, CANDIDATE_WINDOW_TEXT_CHARS),
-      embedText: (title + '. ' + body).slice(0, CANDIDATE_WINDOW_TEXT_CHARS),
+      embedText: DOC_PREFIX + (title + '. ' + body).slice(0, CANDIDATE_WINDOW_TEXT_CHARS),
       sourceText: sources.map(s => {
         const m = /sources\/([^\]|]+)/.exec(s);
         return m ? noteText(m[1].trim(), preserve) : '';
@@ -223,7 +232,7 @@ function sample<T>(xs: T[], n: number, seed: number): T[] {
   return out.slice(0, n);
 }
 
-const itemText = (name: string, summary: string): string => (name + '. ' + summary).trim();
+const itemText = (name: string, summary: string): string => QUERY_PREFIX + (name + '. ' + summary).trim();
 
 function median(xs: number[]): number { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : NaN; }
 
@@ -262,7 +271,8 @@ describe('embedding window probe', () => {
     } catch { /* not a checkout */ }
     console.log(JSON.stringify({
       probe: 'embedding-window-probe', at: new Date().toISOString(), plugin: head, vault: VAULT, K,
-      embedModel: EMBED_MODEL, textChars: CANDIDATE_WINDOW_TEXT_CHARS, aliasLimit: ALIAS_LIMIT, seed: SEED,
+      embedModel: EMBED_MODEL, docPrefix: DOC_PREFIX, queryPrefix: QUERY_PREFIX,
+      textChars: CANDIDATE_WINDOW_TEXT_CHARS, aliasLimit: ALIAS_LIMIT, seed: SEED,
       pages: { entities: entities.length, concepts: concepts.length },
     }));
 

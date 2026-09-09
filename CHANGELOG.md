@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.5.1 — 2026-09-09
+
+- `plugin-probes/embedding-window-probe.test.ts` learns task prefixes:
+  `LLM_WIKI_EMBED_DOC_PREFIX` and `LLM_WIKI_EMBED_QUERY_PREFIX`, both empty by
+  default so a run without them is byte-identical to the one on record. Several
+  encoder families are asymmetric — Qwen3-Embedding wants an instruction on the
+  query side only, E5 prefixes both sides — and running one without its prefix
+  measures misuse rather than the encoder. The prefix rides in the embedded text,
+  so the content-keyed cache separates the two runs on its own, and the run
+  header now declares both prefixes.
+- Measured with it: the recall arm's finding is a property of meaning ranking,
+  not of one encoder. bge-m3 (XLM-RoBERTa backbone) and Qwen3-Embedding-0.6B
+  (decoder backbone, size-matched, run with its documented query instruction)
+  over one substrate land within a percentage point of each other — entities
+  99.5 % both, concepts 95.1 against 95.6 %, identical median ranks — against a
+  word arm at 56.1 / 33.9 %.
+- Two consequences worth carrying: the arm is **saturated** and can no longer
+  discriminate encoders, so further encoder questions belong at the precision
+  arm; and an absolute cosine threshold does not survive an encoder swap (the
+  same foreign page scores 0.15 under one encoder and 0.40 under another) while
+  a rank does.
+
 ## 0.5.0 — 2026-09-09
 
 - New: `plugin-probes/precision-window-probe.test.ts` — the other half of the
