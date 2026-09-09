@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.6.0 — 2026-09-09
+
+- New: `plugin-probes/related-rank-probe.test.ts` — the second reader's
+  question, asked before building it. The dedup window could be measured
+  because a hidden alias is an oracle; a Related list has none, and the only
+  judge available is the family of model that wrote the list. So the probe asks
+  what is answerable without one: can a meaning ranking and the shipped
+  shared-source ranking differ, and where.
+- Three arms plus a chance arm over one candidate set, using the shipped
+  `rankAndCap` rather than a copy of it, with every overlap read against the
+  arithmetic floor (two top-K sets from n candidates must share 2K−n entries).
+- On the reference vault the answer is: only 272 of 2,095 pages carry more than
+  K live candidates, so on 87 % of pages no ranking can change anything; where
+  the choice does cost something (13+ candidates) the two rankings share 2.2 of
+  5 entries, so they are largely independent criteria; and the two-hop pair
+  count of the capped edge set barely moves (4,648 against 4,793).
+- The null arm earns its keep: cosine to an ARBITRARY page already agrees with
+  the shipped rank more often than chance (1.59 against 1.17), so the corpus
+  constant accounts for roughly a third of what a shuffled baseline would have
+  credited to meaning.
+
 ## 0.5.1 — 2026-09-09
 
 - `plugin-probes/embedding-window-probe.test.ts` learns task prefixes:

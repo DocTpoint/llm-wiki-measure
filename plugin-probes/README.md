@@ -273,6 +273,32 @@ arm, where the distributions are not against the ceiling.
 --silent=false`). Outside a TTY vitest swallows a probe's console output and
 reports a passing test with nothing in it.
 
+## `related-rank-probe.test.ts`
+
+Whether a meaning ranking would pick a different Related list than the shipped
+one — and deliberately not whether it would pick a better one. The dedup window
+has an oracle (hide a curated alias and the target is known); a Related list has
+none, and a model asked to judge one is the family of model that wrote it. So
+this asks the question that comes first: can the two rankings differ at all?
+
+Needs `rankAndCap` exported from `core/related-sections.ts` — the shipped
+ranking has to be the shipped function, not a copy of it. Shares its embedding
+cache and text form with `embedding-window-probe`, so run it second and the page
+vectors are already there.
+
+**Read every overlap against the arithmetic floor.** Two top-K sets drawn from
+n candidates must share at least 2K−n entries, so an overlap of 3 of 5 is near
+agreement on a page with six candidates and near disagreement on one with forty.
+The probe buckets by candidate count and prints the floor for each bucket; the
+pooled mean on its own is close to meaningless.
+
+**The null arm is the same cosine ranking asked with another page's vector**,
+and on the reference vault it lands well above the shuffled arm (1.59 against
+1.17 where the floor is 0). Some pages are generically close to everything, so
+part of any meaning arm's apparent agreement is the corpus and not the meaning.
+Subtract the null, not the shuffle: on that vault it takes the effect from 1.04
+to 0.62 entries out of five.
+
 ## `precision-window-probe.test.ts`
 
 The other half of the window question. `embedding-window-probe` asks where a
