@@ -37,7 +37,7 @@ import argparse, hashlib, json, os, random, re, subprocess
 from datetime import datetime
 from pathlib import Path
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 PAIR = re.compile(r"^\s*(\d+)\.\s+(.*?)(?:\s+_+)?\s*$")
 

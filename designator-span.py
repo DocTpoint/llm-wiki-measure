@@ -50,7 +50,7 @@ from collections import defaultdict
 INVALID = re.compile(r'[\x00-\x1f]|[/\\:*?"<>|,()\'!?、，。；：！？（）【】《》]')
 
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 
 def stamp():

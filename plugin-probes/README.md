@@ -257,3 +257,126 @@ every trial costs one embedding; the seed fixes the draw only for one pool.
 ⚠️ Run it with `--disable-console-intercept` (or `--reporter=verbose
 --silent=false`). Outside a TTY vitest swallows a probe's console output and
 reports a passing test with nothing in it.
+
+## `precision-window-probe.test.ts`
+
+The other half of the window question. `embedding-window-probe` asks where a
+known target lands, and every trial there has one. In production most items do
+not: an extracted item is usually a new thing, or a thing the vault names in
+passing. `core/candidate-window.ts` has no floor — it says so in its own header
+— so both arms always return K pages, and the difference is what they return
+when they know nothing. The word arm returns pool order. The embedding arm
+returns the K nearest pages in the vault, every one of them the most plausible
+wrong answer available.
+
+Three populations over one pool, no model calls:
+
+**Z+** the alias trials of the recall arm, unchanged — the target's own score.
+**Z−** the same trials with the target page removed from the pool. The item then
+provably has no page, and its text is real vault prose rather than something
+written for the probe — the statistic is the top-1, the best wrong answer.
+**F** constructed items from fields the vault does not cover. A floor, not a
+rate: that text was written for the probe, so it says what "nothing here" looks
+like and nothing about how often it happens.
+
+The abstention question is then one comparison. A floor `t` drops every
+candidate below it: on Z+ that is a loss, on Z− and F a correct empty window. A
+rule exists only if the distributions separate. On the reference vault they do
+not — median 0.691 / 0.673 for the target against 0.700 / 0.689 for the best
+wrong answer, both far above a null pairing at 0.45 — and keeping 95 % of the
+targets buys abstention in 5.3 % of the no-page trials. Read that as: the
+encoder works, and it cannot tell whether the page exists. ⚠ That null pairing
+at 0.45 is itself a finding, and `abstention-statistic-probe` follows it: most
+of the raw number is the corpus, so this arm understates what a
+corpus-corrected statistic can do.
+
+The word arm additionally gets a measure only it can carry. Ties keep pool
+order, so the same query over a reversed pool returns a different top-1 exactly
+when the leader was not uniquely scored. That is the arm declaring its own
+ignorance — 19 % / 15 % of trials here, which is less often than the design
+assumed, so the honest contrast is not honest against dishonest but *visibly*
+wrong against *plausibly* wrong.
+
+Reuses `LLM_WIKI_EMBED_CACHE`, so a run after the recall arm embeds only what is
+new. Same `--disable-console-intercept` warning as above.
+
+## `precision-model-probe.test.ts`
+
+The two windows in front of the real decision. Everything is the production
+path — `PROMPTS.resolveEntityDedup` with the variables `resolvePagePath` passes,
+the `index` system prompt via `SchemaManager`, `TOKENS_DEDUP_RESOLUTION`,
+`json_schema` at the wire — and the arms differ in one thing: which thirty pages
+the call is shown. W is `selectDedupCandidates` as shipped, E the top thirty by
+cosine over the same pool.
+
+**Both directions are scored or the measurement is worthless.** An arm judged
+only on items that should not merge is won by answering "no match" every time;
+one judged only on targets is won by merging everything. So each drawn alias is
+asked twice — once with its page in the vault (correct answer: that page) and
+once with the page removed (correct answer: none) — and the negative cases of
+`ambiguity-cases.json` are asked alongside. Identical item, different vault: a
+difference between the two is the vault, not the wording. Trials are drawn
+stratified by the Z− top-1 cosine so the tempting end is represented rather than
+averaged away.
+
+`LLM_WIKI_PAIRS` sets the pairs per page type (default 6; 20 gives 168 calls in
+about seven minutes on a local 26B). `LLM_WIKI_DRY=1` prints the system prompt
+and the first user prompt and calls nothing — worth doing once, since the prompt
+is the measurement.
+
+⚠ Two things this probe cannot pin down. The absolute false-merge rate moves
+with the draw: two disjoint samples from the same pool gave 4 of 12 and 2 of 40.
+Only the *paired* comparison between arms is independent of that. And the
+negative cases are hand-picked hard ones, so they concentrate the false merges
+and are not a cross-section.
+
+⚠ Pool order: production sorts the candidate pool by file ctime for the KV
+prefix cache. In an unpacked archive ctime is the unpacking time, so this probe
+sorts by the `created:` field instead. Scored candidates are unaffected; only
+the order of the score-0 tail differs, in the word arm.
+
+
+## `abstention-statistic-probe.test.ts`
+
+The same question as `precision-window-probe`, asked with the corpus taken out.
+
+That probe's own null model is the reason to doubt its statistic: a random item
+paired with a random page scores 0.45, not 0. Whatever that is, it is not the
+pair — it is one language, one register, one subject area, the same study words
+on every page. Measured here directly: the mean page vector has length 0.70 and
+two arbitrary pages already share a cosine of 0.50. About half of every score is
+the corpus, so a threshold on the raw number is largely a threshold on a
+constant, and a real difference riding on top of it is compressed out of sight.
+
+Five statistics, all under the same rule shape so they are comparable — abstain,
+offer no window at all, when the statistic falls below `t`:
+
+**raw** cosine as shipped. **centred** with the pool's mean page vector
+subtracted from every page and from the item. **abtt** centred, then the top
+`LLM_WIKI_ABTT_K` principal directions of the page cloud projected out. **z**
+how far the best candidate stands out from *this item's* own distribution over
+the pool, which needs no vector surgery at all. **margin** top-1 minus top-2.
+
+The last two are the interesting ones, because they sidestep the objection
+rather than repairing it: a constant that lies on every page cancels out of a
+ratio and out of a difference.
+
+On the reference vault the correction is real and insufficient. Stripping twenty
+directions widens the ratio of the medians from 1.08 to 1.33 and lifts the
+abstention rate at 95 % target retention from 13.2 % to 21.7 %; the overlap
+falls only from 87 % to 78 %. The margin is the worst of the five at 9 %, and
+that failure carries the most information: even when the right page exists it
+does not stand alone but sits in a crowd of near-equal neighbours — the vault's
+own density, not a limit of the encoder.
+
+⚠ Do not pair these numbers with `precision-window-probe`'s. That probe applies
+a floor per candidate and scores the target's own cosine; this one abstains on
+the window and scores its top. Both are legitimate rule shapes and neither
+number is the other's baseline — raw reads 5.3 % there and 13.2 % here for that
+reason alone.
+
+⚠ At 189 and 183 trials the `k` sweep is not smooth: k = 20 abstains less than
+k = 10 at 90 % retention. Read the direction, not an optimum.
+
+Needs no endpoint and no model: every vector comes from the cache
+`precision-window-probe` filled.

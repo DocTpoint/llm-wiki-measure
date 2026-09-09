@@ -1,5 +1,55 @@
 # Changelog
 
+## 0.5.0 — 2026-09-09
+
+- New: `plugin-probes/precision-window-probe.test.ts` — the other half of the
+  window question. The recall arm asks where a known target lands; every trial
+  there has one. In production most items have no page at all, and
+  `core/candidate-window.ts` has no floor: both arms always return K pages. So
+  the question is what each arm returns when it knows nothing — pool order in
+  the word arm, the K nearest pages in the vault in the embedding arm, every
+  one of them the most plausible wrong answer available.
+- Three populations over one pool: the target present, the same trials with the
+  target page removed from the pool, and constructed items from fields the
+  vault does not cover. The held-out condition is the point — the item then
+  provably has no page, and its text is real vault prose rather than something
+  written for the occasion.
+- On the reference vault the distributions do not separate. Median cosine of
+  the target 0.691 / 0.673 against 0.700 / 0.689 for the best wrong answer once
+  the target is taken out, with a null pairing at 0.45.
+- New: `plugin-probes/abstention-statistic-probe.test.ts` — the same populations
+  asked with the corpus taken out. A null pairing at 0.45 rather than at 0 says
+  that most of every score is shared vocabulary: one language, one register, one
+  subject area. The mean page vector has length 0.70 and two arbitrary pages
+  already share a cosine of 0.50, so a threshold on the raw number is largely a
+  threshold on that constant. Five statistics under one rule shape — raw,
+  mean-centred, all-but-the-top, the top hit's z against the item's own
+  distribution, and the top-1/top-2 margin.
+- Removing the constant helps and does not rescue the rule. Stripping the top
+  twenty directions widens the median ratio from 1.08 to 1.33 and lifts the
+  abstention rate at 95 % target retention from 13.2 % to 21.7 %, but the
+  overlap only falls from 87 % to 78 %: four in five no-page items still get a
+  full window. So a raw-cosine floor is nearly useless, a floor on a
+  corpus-corrected number is meaningfully better and still weak.
+- The margin is the worst statistic of the five (9 %), and that is the
+  informative failure: even when the right page exists it does not stand alone
+  but sits in a crowd of near-equal neighbours. That is the vault's own density
+  showing through, not a limit of the encoder.
+- New: `plugin-probes/precision-model-probe.test.ts` — the same two windows in
+  front of `resolveEntityDedup` on the production path, scored in both
+  directions at once. An arm measured only on items that should not merge is
+  won by answering "no match" every time, so each alias is asked twice, with
+  and without its page, and the negative cases of the case file are asked
+  alongside.
+- On the reference vault the arms are indistinguishable where the risk was
+  expected — 5 of 48 false merges each, four paired disagreements, two in each
+  direction, and identical verdicts on all eight hand-picked cases. The
+  difference is on the other side: the target is found in 31 of 40 trials
+  against 12, the embedding better in 19 pairs and the word arm in none. The
+  tempting pages are lexical neighbours the word window already contains.
+- Version bumped in every probe's provenance line; no probe changed what it
+  counts.
+
 ## 0.4.0 — 2026-09-09
 
 - New: `plugin-probes/embedding-window-probe.test.ts` — the candidate window
