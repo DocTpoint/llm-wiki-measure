@@ -31,7 +31,7 @@ import argparse, json, os, re, unicodedata
 from pathlib import Path
 
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 
 
 def stamp():

@@ -49,7 +49,7 @@ RELATED = ("verwandte", "related", "siehe auch", "see also")
 SKIP_DIRS = {".obsidian", ".trash", ".git", "node_modules", ".smart-env"}
 
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 
 
 def stamp():

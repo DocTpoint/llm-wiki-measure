@@ -224,3 +224,36 @@ already has domains from other notes, which is the minority; and the best
 cheap arm still leaves ~60 % of alias trials outside the window — the part no
 name or word index reaches. Side finding: 47 curated aliases resolve to a
 *different* page than the one carrying them.
+
+## `embedding-window-probe.test.ts`
+
+The same window, ranked by meaning instead of by words. Two arms over one pool
+in one run: `selectCandidateWindow` as shipped (dfCap 0.5) against the cosine
+between one vector for the item and one per page, over the same 2,000-character
+window of the page body the word arm reads. No reranking and no hybrid — a
+hybrid that wins does not say which half won.
+
+Needs an OpenAI-compatible `/v1/embeddings` endpoint (`LLM_WIKI_EMBED_URL`,
+default LM Studio on 1234). Page vectors are cached by model and content in
+`LLM_WIKI_EMBED_CACHE`, so the second run over a vault embeds only the items:
+2,000 pages take about two minutes, a re-run thirteen seconds. Point the cache
+outside the vault and outside the checkout.
+
+Two controls ship with it, because neither arm's number is readable alone:
+
+**The alias set is split by the target's source count.** An alias trial's item
+text is the first paragraph of the page's first source note. On a one-source
+page the page *is* a rewrite of that note, so a vector that finds it may be
+recognising provenance rather than meaning — the same shape as a sibling
+tautology. Read the multi-source block as the finding.
+
+**A null model asks each trial with the next trial's item vector.** A median
+rank of 2 means nothing until the line below it says that the wrong pairing
+lands at 509 of 957.
+
+`LLM_WIKI_ALIAS_LIMIT` (default 200 per page type) caps the alias draw, since
+every trial costs one embedding; the seed fixes the draw only for one pool.
+
+⚠️ Run it with `--disable-console-intercept` (or `--reporter=verbose
+--silent=false`). Outside a TTY vitest swallows a probe's console output and
+reports a passing test with nothing in it.

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.4.0 — 2026-09-09
+
+- New: `plugin-probes/embedding-window-probe.test.ts` — the candidate window
+  ranked by meaning instead of by words, against `selectCandidateWindow` as
+  shipped, same pool and same K in one run. Both arms are asked for the full
+  ordering, so a target that misses the window still has a readable rank.
+- It carries its own two controls, because neither number is readable without
+  them: the alias set is split by the target's source count (on a one-source
+  page the item text is the note the page was written from, so a hit may be
+  provenance rather than meaning), and a null model asks each trial with the
+  next trial's item vector.
+- On the reference vault the embedding arm put the target in the window in
+  99.5 % / 95.1 % of alias trials against 56.1 % / 33.9 % for words, held at
+  100 % / 88.7 % on multi-source targets, and the null model sat at chance
+  (median rank 509 of 957). Read that as one vault and one encoder, not as a
+  reference value.
+- Version bumped in every probe's provenance line; no probe changed what it
+  counts.
+
 ## 0.3.1 — 2026-09-09
 
 - Fix: the four probes that read notes (`rebuild-probe`, `picker-probe`,
