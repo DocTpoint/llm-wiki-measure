@@ -30,6 +30,7 @@ embedding comparison.
   - [rebuild-probe — is the graph a graph?](#rebuild-probe)
   - [indegree-probe — who draws the links?](#indegree-probe)
   - [picker-probe — did the ingest order choose well?](#picker-probe)
+  - [related-probe — how long do the Related lists get?](#related-probe)
   - [coverage-probe — how much of the notes reached the graph?](#coverage-probe)
   - [graph-yield — what does the graph add over search and embeddings?](#graph-yield)
   - [forced-choice — is that a tie, or a blunt instrument?](#forced-choice)
@@ -90,6 +91,7 @@ cd llm-wiki-measure
 python3 rebuild-probe.py  --vault ~/MyVault --notes Notes
 python3 indegree-probe.py --vault ~/MyVault
 python3 picker-probe.py   --vault ~/MyVault --notes Notes
+python3 related-probe.py  --vault ~/MyVault --sections "Related Concepts,Related Entities"
 
 # coverage of your notes: seconds, no dependencies
 python3 coverage-probe.py --vault ~/MyVault --notes Notes
@@ -110,7 +112,7 @@ python3 graph-yield.py --vault ~/MyVault \
 ```
 
 `--help` prints each probe's full explanation. The rebuild, in-degree,
-picker and coverage probes also accept `--json out.json` to save their
+picker, related and coverage probes also accept `--json out.json` to save their
 numbers next to the printed ones; `graph-yield` writes its rating list and
 key as files of its own.
 
@@ -251,6 +253,38 @@ already knows.
 measures the *choice* of notes, not its consequence. Whether a different
 order leaves a different graph needs the same vault built twice, and that
 is a measurement we have not completed.
+
+### related-probe
+
+**Question:** how long do the Related lists get as more notes touch a page,
+and where would a cap bite?
+
+**How it measures.** The plugin's Related sections are a union: every merge
+keeps what the page already lists and adds the new names, and nothing
+removes an entry. So a list's length is a function of how many notes have
+touched the page. The probe counts the entries in the Related sections of
+every page (`--sections` names the headings in your wiki language), buckets
+the pages by the number of source pages in their provenance field, and
+prints mean, median, maximum and the full distribution per bucket, plus the
+share of pages at or above `--cap`. Two acceptance checks ride along for a
+vault built with a ranked cap: no section over the cap, and the bare entries
+of a section ordered by shared sources descending — reported against the
+share of sections that happen to be alphabetical, by list length, so an
+incidental order is not mistaken for a rank.
+
+**Reading the output.** On the reference vault (413 notes, 2,095 pages, no
+cap) the mean rose about two entries per source — 2.2 / 3.7 / 4.9 / 6.4 /
+8.3 / 18.4 for 1 / 2 / 3 / 4 / 5–7 / ≥ 8 sources, maximum 73 — and a cap of
+five would have touched 272 of the 2,095 pages. The same vault shape rebuilt
+under a cap of five reads 2.1 / 3.3 / 4.1 / 4.7 / 5.0 / 5.0: identical below
+the cap, and above it the share-at-cap column (80 % at four sources, 100 %
+from eight) is all that is left to read. The single-source bucket is the
+control: it is the one place both vaults show the same distribution.
+
+**What it cannot tell you:** which five entries a capped list should keep.
+That is a ranking question, and it has no oracle in the vault — see
+`plugin-probes/related-rank-probe.test.ts` for the question that is
+answerable without one.
 
 ### coverage-probe
 

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.0 — 2026-09-11
+
+- New: `related-probe.py` — the Related-list curve. Entries per page,
+  bucketed by the number of source pages in the provenance field, with the
+  full distribution and, per bucket, the share of pages at or above a cap.
+  On an uncapped vault that share says which pages a cap would change; on a
+  capped vault it says where the curve is censored and can no longer be
+  read. Two acceptance checks ride along for a vault built with a ranked
+  cap: no section over the cap, and bare entries ordered by shared sources
+  descending, reported against the alphabetical share by list length.
+- On the reference vault (413 notes, 2,095 pages, no cap) the mean rises
+  about two entries per source: 2.2 / 3.7 / 4.9 / 6.4 / 8.3 / 18.4 for
+  1 / 2 / 3 / 4 / 5–7 / ≥ 8 sources, maximum 73; a cap of five would touch
+  272 of 2,095 pages. The same vault shape rebuilt under a cap of five reads
+  2.1 / 3.3 / 4.1 / 4.7 / 5.0 / 5.0 — identical below the cap, censored
+  above it.
+
 ## 0.6.0 — 2026-09-09
 
 - New: `plugin-probes/related-rank-probe.test.ts` — the second reader's
